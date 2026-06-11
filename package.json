@@ -1,0 +1,33 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@google/genai": "^1.51.0",
+    "@google/generative-ai": "^0.24.1",
+    "body-parser": "^2.2.2",
+    "bytez.js": "^3.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "mongodb": "^7.1.1",
+    "mongoose": "^9.4.1",
+    "node": "^25.8.1",
+    "node-fetch": "^3.3.2",
+    "nodemon": "^3.1.14",
+    "openai": "^6.35.0",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "socket.io": "^4.8.3",
+    "uuid": "^13.0.0"
+  }
+}
