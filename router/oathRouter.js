@@ -5,7 +5,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const router = express.Router();
-const FRONTEND_URL = process.env.FRONTEND_URL;
 
 // 1. Trigger Google Login
 router.get('/auth/google', passport.authenticate('google', { 
@@ -17,9 +16,11 @@ router.get('/auth/google', passport.authenticate('google', {
 // Uses template literals to pull the Frontend URL from .env
 router.get('/auth/google/callback', 
     passport.authenticate('google', { 
-        successRedirect: `${FRONTEND_URL}/`, 
-        failureRedirect: `${FRONTEND_URL}/?error=failed` 
-    })
+        failureRedirect: '/auth/login' 
+    }),
+    (req, res) => {
+        res.json({ success: true, user: req.user });
+    }
 );
 
 // 3. Check login status

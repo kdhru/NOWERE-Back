@@ -20,7 +20,6 @@ const app = express();
 const server = http.createServer(app);
 
 const PORT = process.env.PORT || 5000;
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 
 /* =====================================
@@ -29,7 +28,7 @@ const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: "*",
     credentials: true,
   },
 });
@@ -135,7 +134,7 @@ passport.deserializeUser(async (id, done) => {
 
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: "*",
     credentials: true,
   })
 );
@@ -186,10 +185,10 @@ app.get(
 app.get(
   "/auth/google/callback",
   passport.authenticate("google", {
-    failureRedirect: `${FRONTEND_URL}/?error=failed`,
+    failureRedirect: "/auth/login",
   }),
   (req, res) => {
-    res.redirect(FRONTEND_URL);
+    res.json({ success: true, user: req.user });
   }
 );
 
@@ -382,7 +381,6 @@ app.use((err, req, res, next) => {
 
 server.listen(PORT, () => {
   console.log(`🚀 Backend: ${BACKEND_URL}`);
-  console.log(`🏠 Frontend: ${FRONTEND_URL}`);
   console.log(`💬 Socket.IO Ready`);
   console.log(`✅ Google Redirect: ${BACKEND_URL}/auth/google/callback`);
 });
