@@ -56,7 +56,7 @@ router.post("/send", isAuth, async (req, res) => {
     let aiReply = "No response generated.";
 
     try {
-      const response = await fetch("https://nowere-back.onrender.com/chat", {
+      const response = await fetch("http://localhost:5000/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

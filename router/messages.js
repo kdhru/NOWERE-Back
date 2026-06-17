@@ -1,92 +1,118 @@
 import express from "express";
 import User from "../models/User.js";
 import Conversation from "../models/Conversation.js";
-import Message from "../models/Messege.js";
+import Message from "../models/Message.js";
+import { isAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
-const isAuth = (req, res, next) => {
-if (req.isAuthenticated()) return next();
-res.status(401).json({ error: "Login required" });
-};
-
 // SEARCH USERS
 router.get("/search", isAuth, async (req, res) => {
-const q = req.query.q || "";
-
-const users = await User.find({
-_id: { $ne: req.user._id },
-displayName: { $regex: q, $options: "i" },
-}).limit(10);
-
-res.json(users);
+  try {
+    const q = req.query.q || "";
+    const users = await User.find({
+      _id: { $ne: req.user._id },
+      displayName: { $regex: q, $options: "i" },
+    }).limit(10);
+    res.json(users);
+  } catch (err) {
+    console.error("Search error:", err);
+    res.status(500).json({ error: "Search failed" });
+  }
 });
 
 // START CHAT
 router.post("/start", isAuth, async (req, res) => {
-const { userId } = req.body;
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: "User ID required" });
+    }
 
-let convo = await Conversation.findOne({
-members: { $all: [req.user._id, userId] },
-});
+    let convo = await Conversation.findOne({
+      members: { $all: [req.user._id, userId] },
+    });
 
-if (!convo) {
-convo = await Conversation.create({
-members: [req.user._id, userId],
-});
-}
-
-res.json(convo);
+    if (!convo) {
+      convo = await Conversation.create({
+        members: [req.user._id, userId],
+      });
+    }
+    res.json(convo);
+  } catch (err) {
+    console.error("Start chat error:", err);
+    res.status(500).json({ error: "Failed to start chat" });
+  }
 });
 
 // SEND MESSAGE
 router.post("/send", isAuth, async (req, res) => {
-const { conversationId, receiverId, text } = req.body;
+  try {
+    const { conversationId, receiverId, text } = req.body;
+    if (!conversationId || !receiverId || !text) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
 
-const msg = await Message.create({
-conversationId,
-sender: req.user._id,
-receiver: receiverId,
-text,
-});
+    const msg = await Message.create({
+      conversationId,
+      sender: req.user._id,
+      receiver: receiverId,
+      text,
+    });
 
-await Conversation.findByIdAndUpdate(conversationId, {
-lastMessage: text,
-lastSender: req.user._id,
-updatedAt: new Date(),
-});
+    await Conversation.findByIdAndUpdate(conversationId, {
+      lastMessage: text,
+      lastSender: req.user._id,
+      updatedAt: new Date(),
+    });
 
-res.json(msg);
+    res.json(msg);
+  } catch (err) {
+    console.error("Send message error:", err);
+    res.status(500).json({ error: "Failed to send message" });
+  }
 });
 
 // GET MESSAGES
 router.get("/:id", isAuth, async (req, res) => {
-const msgs = await Message.find({
-conversationId: req.params.id,
-}).sort({ createdAt: 1 });
-
-res.json(msgs);
+  try {
+    const msgs = await Message.find({
+      conversationId: req.params.id,
+    }).sort({ createdAt: 1 });
+    res.json(msgs);
+  } catch (err) {
+    console.error("Get messages error:", err);
+    res.status(500).json({ error: "Failed to fetch messages" });
+  }
 });
 
 // INBOX
 router.get("/", isAuth, async (req, res) => {
-const convos = await Conversation.find({
-members: req.user._id,
-})
-.populate("members", "displayName photo")
-.sort({ updatedAt: -1 });
-
-res.json(convos);
+  try {
+    const convos = await Conversation.find({
+      members: req.user._id,
+    })
+      .populate("members", "displayName photo")
+      .sort({ updatedAt: -1 });
+    res.json(convos);
+  } catch (err) {
+    console.error("Inbox error:", err);
+    res.status(500).json({ error: "Failed to fetch inbox" });
+  }
 });
 
 // UNREAD COUNT
 router.get("/unread/count", isAuth, async (req, res) => {
-const count = await Message.countDocuments({
-receiver: req.user._id,
-seen: false,
-});
-
-res.json({ count });
+  try {
+    const count = await Message.countDocuments({
+      receiver: req.user._id,
+      seen: false,
+    });
+    res.json({ count });
+  } catch (err) {
+    console.error("Unread count error:", err);
+    res.status(500).json({ error: "Failed to fetch unread count" });
+  }
 });
 
 export default router;

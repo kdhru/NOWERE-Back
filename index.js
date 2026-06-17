@@ -1,5 +1,6 @@
 import express from "express";
 import session from "express-session";
+import MongoStore from "connect-mongo";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -20,6 +21,7 @@ const app = express();
 const server = http.createServer(app);
 
 const PORT = process.env.PORT || 5000;
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 
 /* =====================================
@@ -28,7 +30,7 @@ const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: FRONTEND_URL,
     credentials: true,
   },
 });
@@ -134,7 +136,7 @@ passport.deserializeUser(async (id, done) => {
 
 app.use(
   cors({
-    origin: "*",
+    origin: FRONTEND_URL,
     credentials: true,
   })
 );
@@ -146,6 +148,9 @@ app.use(
     secret: process.env.SESSION_SECRET || "secure_random_string",
     resave: false,
     saveUninitialized: false,
+    store: MongoStore.create({
+     mongoUrl: process.env.MONGO_URL,
+   }),
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
@@ -185,10 +190,10 @@ app.get(
 app.get(
   "/auth/google/callback",
   passport.authenticate("google", {
-    failureRedirect: "/auth/login",
+    failureRedirect: `${FRONTEND_URL}/?error=failed`,
   }),
   (req, res) => {
-    res.json({ success: true, user: req.user });
+    res.redirect(FRONTEND_URL);
   }
 );
 
@@ -381,6 +386,7 @@ app.use((err, req, res, next) => {
 
 server.listen(PORT, () => {
   console.log(`🚀 Backend: ${BACKEND_URL}`);
+  console.log(`🏠 Frontend: ${FRONTEND_URL}`);
   console.log(`💬 Socket.IO Ready`);
   console.log(`✅ Google Redirect: ${BACKEND_URL}/auth/google/callback`);
 });
