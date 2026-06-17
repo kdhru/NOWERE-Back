@@ -21,7 +21,6 @@ const server = http.createServer(app);
 
 const PORT = process.env.PORT || 5000;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
-const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 
 /* =====================================
    SOCKET.IO
@@ -81,7 +80,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: `${BACKEND_URL}/auth/google/callback`,
+      callbackURL: "https://nowere-back.onrender.com/auth/google/callback",
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -282,8 +281,8 @@ app.use((err, req, res, next) => {
 ===================================== */
 
 server.listen(PORT, () => {
-  console.log(`🚀 Backend: ${BACKEND_URL}`);
+  console.log(`🚀 Backend: https://nowere-back.onrender.com`);
   console.log(`🏠 Frontend: ${FRONTEND_URL}`);
   console.log(`💬 Socket.IO Ready`);
-  console.log(`✅ Google Redirect: ${BACKEND_URL}/auth/google/callback`);
+  console.log(`✅ Google Redirect: https://nowere-back.onrender.com/auth/google/callback`);
 });
