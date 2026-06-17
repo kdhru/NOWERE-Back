@@ -3,6 +3,7 @@ import Chat from "../models/Chat.js";
 import fetch from "node-fetch";
 
 const router = express.Router();
+const BACKEND_URL = process.env.BACKEND_URL;
 
 /* ===== AUTH MIDDLEWARE ===== */
 const isAuth = (req, res, next) => {
@@ -56,7 +57,7 @@ router.post("/send", isAuth, async (req, res) => {
     let aiReply = "No response generated.";
 
     try {
-      const response = await fetch("http://localhost:5000/chat", {
+      const response = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
