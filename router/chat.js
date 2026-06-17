@@ -1,15 +1,14 @@
 import express from "express";
 import Chat from "../models/Chat.js";
-import fetch from "node-fetch";
+import OpenAI from "openai";
+import { isAuth } from "../middleware/auth.js"; // Standardized middleware
 
 const router = express.Router();
-const BACKEND_URL = process.env.BACKEND_URL;
 
-/* ===== AUTH MIDDLEWARE ===== */
-const isAuth = (req, res, next) => {
-  if (req.isAuthenticated()) return next();
-  return res.status(401).json({ error: "Login required" });
-};
+const openai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
 
 /* ===== SEND MESSAGE ===== */
 router.post("/send", isAuth, async (req, res) => {
@@ -21,7 +20,6 @@ router.post("/send", isAuth, async (req, res) => {
     }
 
     message = message.trim();
-
     let chat;
 
     // CREATE OR FIND CHAT
@@ -48,7 +46,7 @@ router.post("/send", isAuth, async (req, res) => {
       content: message,
     });
 
-    // LAST 10 HISTORY
+    // LAST 10 HISTORY FOR CONTEXT
     const history = chat.messages.slice(-10).map((msg) => ({
       role: msg.role,
       content: msg.content,
@@ -57,22 +55,21 @@ router.post("/send", isAuth, async (req, res) => {
     let aiReply = "No response generated.";
 
     try {
-      const response = await fetch(`${BACKEND_URL}/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message,
-          messages: history,
-        }),
+      // Direct call to OpenAI (replaces the 'fetch' loop)
+      const response = await openai.chat.completions.create({
+        model: "gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: "You are a smart helpful AI assistant.",
+          },
+          ...history, // Spreads history directly into context
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
       });
 
-      const data = await response.json();
-
-      if (data?.reply) {
-        aiReply = data.reply;
-      }
+      aiReply = response.choices?.[0]?.message?.content || "No response.";
     } catch (err) {
       console.error("AI Error:", err.message);
       aiReply = "AI service unavailable.";

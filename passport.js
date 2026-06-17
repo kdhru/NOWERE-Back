@@ -18,7 +18,7 @@ passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     // Dynamically points to your backend URL + the callback route
-    callbackURL: `nowere-back.onrender.com/auth/google/callback`, 
+    callbackURL: `https://nowere-back.onrender.com/auth/google/callback`, 
     passReqToCallback: true
   },
   (request, accessToken, refreshToken, profile, done) => {

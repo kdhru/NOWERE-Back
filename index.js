@@ -1,7 +1,6 @@
 import express from "express";
 import session from "express-session";
 import MongoStore from "connect-mongo";
-import OpenAI from "openai";
 import dotenv from "dotenv";
 import cors from "cors";
 import passport from "passport";
@@ -20,7 +19,7 @@ await connectDB();
 const app = express();
 const server = http.createServer(app);
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 
@@ -44,15 +43,12 @@ io.on("connection", (socket) => {
 
   socket.on("join", (userId) => {
     if (!userId) return;
-
     onlineUsers.set(userId.toString(), socket.id);
-
     io.emit("online-users", Array.from(onlineUsers.keys()));
   });
 
   socket.on("send-message", (data) => {
     const receiverSocket = onlineUsers.get(data.receiverId?.toString());
-
     if (receiverSocket) {
       io.to(receiverSocket).emit("receive-message", data);
     }
@@ -60,11 +56,8 @@ io.on("connection", (socket) => {
 
   socket.on("typing", (data) => {
     const receiverSocket = onlineUsers.get(data.receiverId?.toString());
-
     if (receiverSocket) {
-      io.to(receiverSocket).emit("typing", {
-        senderId: data.senderId,
-      });
+      io.to(receiverSocket).emit("typing", { senderId: data.senderId });
     }
   });
 
@@ -74,9 +67,7 @@ io.on("connection", (socket) => {
         onlineUsers.delete(userId);
       }
     }
-
     io.emit("online-users", Array.from(onlineUsers.keys()));
-
     console.log("Socket Disconnected:", socket.id);
   });
 });
@@ -143,6 +134,9 @@ app.use(
 
 app.use(express.json());
 
+// REQUIRED for secure cookies behind proxies (Render, Heroku, etc.)
+app.set("trust proxy", 1);
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "secure_random_string",
@@ -164,15 +158,12 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 /* =====================================
-   AUTH CHECK
+   AUTH CHECK MIDDLEWARE (Local for User Routes)
 ===================================== */
 
 const isAuthenticated = (req, res, next) => {
   if (req.isAuthenticated()) return next();
-
-  return res.status(401).json({
-    error: "Unauthorized",
-  });
+  return res.status(401).json({ error: "Unauthorized" });
 };
 
 /* =====================================
@@ -201,10 +192,7 @@ app.get("/auth/logout", (req, res) => {
   req.logout(() => {
     req.session.destroy(() => {
       res.clearCookie("connect.sid");
-
-      res.json({
-        success: true,
-      });
+      res.json({ success: true });
     });
   });
 });
@@ -218,13 +206,10 @@ app.get("/api/user", isAuthenticated, async (req, res) => {
     const user = await User.findById(req.user.id);
 
     if (!user) {
-      return res.status(404).json({
-        error: "User not found",
-      });
+      return res.status(404).json({ error: "User not found" });
     }
 
     const firstLetter = user.email?.charAt(0) || "U";
-
     const photo =
       user.photo ||
       `https://ui-avatars.com/api/?name=${firstLetter}&background=6b4a3a&color=fff`;
@@ -236,9 +221,7 @@ app.get("/api/user", isAuthenticated, async (req, res) => {
       photo,
     });
   } catch (error) {
-    res.status(500).json({
-      error: "Failed to fetch user",
-    });
+    res.status(500).json({ error: "Failed to fetch user" });
   }
 });
 
@@ -250,90 +233,21 @@ app.get("/api/user-status", (req, res) => {
       email: req.user.email,
     });
   }
-
-  res.json({
-    loggedIn: false,
-  });
+  res.json({ loggedIn: false });
 });
-
-/* =====================================
-   AI CHAT ROUTE
-===================================== */
-
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
-
-app.post("/chat", async (req, res) => {
-  try {
-    const message = req.body.message;
-
-    if (!message) {
-      return res.status(400).json({
-        error: "Message required",
-      });
-    }
-
-    const response = await openai.chat.completions.create({
-      model: "gemini-2.5-flash",
-      messages: [
-        {
-          role: "system",
-          content: "You are a smart helpful AI assistant.",
-        },
-        {
-          role: "user",
-          content: message,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 1000,
-    });
-
-    const reply =
-      response.choices?.[0]?.message?.content || "No response.";
-
-    res.json({ reply });
-  } catch (error) {
-    res.status(500).json({
-      error: "AI failed",
-    });
-  }
-});
-
-/* =====================================
-   ADD USER
-===================================== */
 
 app.post("/add-user", async (req, res) => {
   try {
     const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({
-        error: "Email required",
-      });
-    }
+    if (!email) return res.status(400).json({ error: "Email required" });
 
     const exists = await User.findOne({ email });
-
-    if (exists) {
-      return res.status(409).json({
-        error: "User already exists",
-      });
-    }
+    if (exists) return res.status(409).json({ error: "User already exists" });
 
     const user = await User.create(req.body);
-
-    res.status(201).json({
-      success: true,
-      data: user,
-    });
+    res.status(201).json({ success: true, data: user });
   } catch (error) {
-    res.status(500).json({
-      error: "Failed to create user",
-    });
+    res.status(500).json({ error: "Failed to create user" });
   }
 });
 
@@ -345,38 +259,21 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/messages", messageRoutes);
 
 /* =====================================
-   HEALTH
+   HEALTH & ERROR HANDLERS
 ===================================== */
 
 app.get("/health", (req, res) => {
-  res.json({
-    status: "OK",
-    time: new Date().toISOString(),
-  });
+  res.json({ status: "OK", time: new Date().toISOString() });
 });
-
-/* =====================================
-   404
-===================================== */
 
 app.use((req, res) => {
-  res.status(404).json({
-    error: "Route not found",
-  });
+  res.status(404).json({ error: "Route not found" });
 });
-
-/* =====================================
-   ERROR HANDLER
-===================================== */
 
 app.use((err, req, res, next) => {
   console.error(err);
-
   res.status(500).json({
-    error:
-      process.env.NODE_ENV === "production"
-        ? "Server error"
-        : err.message,
+    error: process.env.NODE_ENV === "production" ? "Server error" : err.message,
   });
 });
 

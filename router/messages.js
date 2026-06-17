@@ -116,4 +116,3 @@ router.get("/unread/count", isAuth, async (req, res) => {
 });
 
 export default router;
-
