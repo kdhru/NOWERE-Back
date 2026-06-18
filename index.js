@@ -148,7 +148,7 @@ app.use(
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000,
     },
   })
@@ -261,6 +261,10 @@ app.use("/api/messages", messageRoutes);
 /* =====================================
    HEALTH & ERROR HANDLERS
 ===================================== */
+
+app.get("/", (req, res) => {
+  res.json({ message: "Backend API only. Use /api/* endpoints or /auth for authentication." });
+});
 
 app.get("/health", (req, res) => {
   res.json({ status: "OK", time: new Date().toISOString() });
