@@ -3,6 +3,7 @@ import session from "express-session";
 import MongoStore from "connect-mongo";
 import dotenv from "dotenv";
 import cors from "cors";
+import OpenAI from "openai";
 import passport from "passport";
 import http from "http";
 import { Server } from "socket.io";
@@ -248,6 +249,52 @@ app.post("/add-user", async (req, res) => {
     res.status(201).json({ success: true, data: user });
   } catch (error) {
     res.status(500).json({ error: "Failed to create user" });
+  }
+});
+
+/* =====================================
+   AI CHAT ROUTE
+===================================== */
+
+const openai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
+
+app.post("/chat", async (req, res) => {
+  try {
+    const message = req.body.message;
+
+    if (!message) {
+      return res.status(400).json({
+        error: "Message required",
+      });
+    }
+
+    const response = await openai.chat.completions.create({
+      model: "gemini-2.5-flash",
+      messages: [
+        {
+          role: "system",
+          content: "You are a smart helpful AI assistant.",
+        },
+        {
+          role: "user",
+          content: message,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+
+    const reply =
+      response.choices?.[0]?.message?.content || "No response.";
+
+    res.json({ reply });
+  } catch (error) {
+    res.status(500).json({
+      error: "AI failed",
+    });
   }
 });
 

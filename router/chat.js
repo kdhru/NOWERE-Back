@@ -3,7 +3,7 @@ import Chat from "../models/Chat.js";
 import fetch from "node-fetch";
 
 const router = express.Router();
-
+const BACKEND_URL = process.env.BACKEND_URL;
 
 /* ===== AUTH MIDDLEWARE ===== */
 const isAuth = (req, res, next) => {
