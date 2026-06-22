@@ -106,6 +106,43 @@ router.post("/send", isAuth, async (req, res) => {
   }
 });
 
+/* ===== CREATE CHAT (used for forwarded messages) ===== */
+router.post("/create", isAuth, async (req, res) => {
+  try {
+    let { title, messages } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: "Title required" });
+    }
+
+    title = title.trim();
+    messages = Array.isArray(messages) ? messages : [];
+
+    const existingChat = await Chat.findOne({
+      user: req.user._id,
+      title,
+    });
+
+    if (existingChat) {
+      existingChat.messages.push(...messages);
+      existingChat.updatedAt = new Date();
+      await existingChat.save();
+      return res.json(existingChat);
+    }
+
+    const chat = await Chat.create({
+      user: req.user._id,
+      title,
+      messages,
+    });
+
+    res.json(chat);
+  } catch (err) {
+    console.error("Create Chat Error:", err.message || err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 /* ===== GET ALL CHATS ===== */
 router.get("/", isAuth, async (req, res) => {
   try {

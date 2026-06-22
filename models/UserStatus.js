@@ -1,1 +1,0 @@
-// This file is deprecated. User status is now tracked in models/User.js
