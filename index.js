@@ -12,6 +12,7 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import connectDB from "./config/db.js";
 import User from "./models/User.js";
 import chatRoutes from "./router/chat.js";
+import aichatroutes from "./router/aichat.js";
 import messageRoutes from "./router/messages.js";
 
 dotenv.config();
@@ -44,21 +45,29 @@ io.on("connection", (socket) => {
 
   socket.on("join", (userId) => {
     if (!userId) return;
-    onlineUsers.set(userId.toString(), socket.id);
+    const userRoom = userId.toString();
+    onlineUsers.set(userRoom, socket.id);
+    socket.join(userRoom);
     io.emit("online-users", Array.from(onlineUsers.keys()));
   });
 
   socket.on("send-message", (data) => {
-    const receiverSocket = onlineUsers.get(data.receiverId?.toString());
-    if (receiverSocket) {
-      io.to(receiverSocket).emit("receive-message", data);
+    const senderRoom = data.senderId?.toString();
+    const receiverRoom = data.receiverId?.toString();
+
+    if (receiverRoom) {
+      io.to(receiverRoom).emit("receive-message", data);
+    }
+
+    if (senderRoom) {
+      io.to(senderRoom).emit("receive-message", data);
     }
   });
 
   socket.on("typing", (data) => {
-    const receiverSocket = onlineUsers.get(data.receiverId?.toString());
-    if (receiverSocket) {
-      io.to(receiverSocket).emit("typing", { senderId: data.senderId });
+    const receiverRoom = data.receiverId?.toString();
+    if (receiverRoom) {
+      io.to(receiverRoom).emit("typing", { senderId: data.senderId });
     }
   });
 
@@ -133,9 +142,8 @@ app.use(
   })
 );
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
-// REQUIRED for secure cookies behind proxies (Render, Heroku, etc.)
 app.set("trust proxy", 1);
 
 app.use(
@@ -159,7 +167,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 /* =====================================
-   AUTH CHECK MIDDLEWARE (Local for User Routes)
+   AUTH CHECK MIDDLEWARE
 ===================================== */
 
 const isAuthenticated = (req, res, next) => {
@@ -252,63 +260,38 @@ app.post("/add-user", async (req, res) => {
   }
 });
 
-/* =====================================
-   AI CHAT ROUTE
-===================================== */
-
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
-
-app.post("/chat", async (req, res) => {
+app.put("/api/user/memory", isAuthenticated, async (req, res) => {
   try {
-    const message = req.body.message;
+    const { memoryText } = req.body;
 
-    if (!message) {
-      return res.status(400).json({
-        error: "Message required",
-      });
+    if (memoryText === undefined) {
+      return res.status(400).json({ error: "Memory content parameter required" });
     }
 
-    const response = await openai.chat.completions.create({
-      model: "gemini-2.5-flash",
-      messages: [
-        {
-          role: "system",
-          content: "You are a smart helpful AI assistant.",
-        },
-        {
-          role: "user",
-          content: message,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 1000,
-    });
+    const user = await User.findById(req.user.id);
+    user.aiMemory = memoryText.trim();
+    await user.save();
 
-    const reply =
-      response.choices?.[0]?.message?.content || "No response.";
-
-    res.json({ reply });
+    res.json({ success: true, aiMemory: user.aiMemory });
   } catch (error) {
-    res.status(500).json({
-      error: "AI failed",
-    });
+    res.status(500).json({ error: "Failed to save data to user memory profile" });
   }
 });
 
 /* =====================================
+   AI CHAT ROUTE
+===================================== */
+app.use("/chat", aichatroutes);
+
+/* =====================================
    ROUTERS
 ===================================== */
-
 app.use("/api/chat", chatRoutes);
 app.use("/api/messages", messageRoutes);
 
 /* =====================================
    HEALTH & ERROR HANDLERS
 ===================================== */
-
 app.get("/", (req, res) => {
   res.json({ message: "Backend API only. Use /api/* endpoints or /auth for authentication." });
 });
@@ -331,7 +314,6 @@ app.use((err, req, res, next) => {
 /* =====================================
    START SERVER
 ===================================== */
-
 server.listen(PORT, () => {
   console.log(`🚀 Backend: ${BACKEND_URL}`);
   console.log(`🏠 Frontend: ${FRONTEND_URL}`);

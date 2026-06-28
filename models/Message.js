@@ -15,6 +15,10 @@ const messageSchema = new mongoose.Schema(
       ref: "User",
     },
     text: String,
+    image: {
+      type: String,
+      default: null,
+    },
     seen: {
       type: Boolean,
       default: false,

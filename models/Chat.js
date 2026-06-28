@@ -25,6 +25,11 @@ const chatSchema = new mongoose.Schema(
           type: String,
           required: true,
         },
+        // 🚀 Added: Stores optional image data URLs (base64 string) natively
+        image: {
+          type: String,
+          default: null,
+        },
       },
     ],
   },

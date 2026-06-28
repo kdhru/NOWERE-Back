@@ -17,6 +17,11 @@ const userSchema = new mongoose.Schema(
     displayName: {
       type: String,
     },
+    // 🚀 Added: Global AI memory for cross-chat personalization
+    aiMemory: {
+      type: String,
+      default: "No specific background or personal instructions provided yet.",
+    },
   },
   { timestamps: true }
 );

@@ -21,7 +21,42 @@ router.get("/search", isAuth, async (req, res) => {
   }
 });
 
-// START CHAT
+// 🚀 NEW UNIFIED ROUTE: Opens chat and fetches messages in ONE trip
+router.post("/open", isAuth, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: "User ID required" });
+    }
+
+    // Step 1: Find or create the conversation
+    let convo = await Conversation.findOne({
+      members: { $all: [req.user._id, userId] },
+    });
+
+    if (!convo) {
+      convo = await Conversation.create({
+        members: [req.user._id, userId],
+      });
+    }
+
+    // Step 2: Instantly grab the messages while we are still inside the datacenter
+    const msgs = await Message.find({
+      conversationId: convo._id,
+    }).sort({ createdAt: 1 });
+
+    // Step 3: Return payload combined
+    res.json({
+      conversation: convo,
+      messages: msgs,
+    });
+  } catch (err) {
+    console.error("Open unified chat error:", err);
+    res.status(500).json({ error: "Failed to open chat and load messages" });
+  }
+});
+
+// START CHAT (Legacy - kept for safety)
 router.post("/start", isAuth, async (req, res) => {
   try {
     const { userId } = req.body;
@@ -48,8 +83,8 @@ router.post("/start", isAuth, async (req, res) => {
 // SEND MESSAGE
 router.post("/send", isAuth, async (req, res) => {
   try {
-    const { conversationId, receiverId, text } = req.body;
-    if (!conversationId || !receiverId || !text) {
+    const { conversationId, receiverId, text, image } = req.body;
+    if (!conversationId || !receiverId || (!text && !image)) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -57,7 +92,8 @@ router.post("/send", isAuth, async (req, res) => {
       conversationId,
       sender: req.user._id,
       receiver: receiverId,
-      text,
+      text: text || "",
+      image: image || null,
     });
 
     await Conversation.findByIdAndUpdate(conversationId, {
@@ -116,4 +152,3 @@ router.get("/unread/count", isAuth, async (req, res) => {
 });
 
 export default router;
-

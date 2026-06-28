@@ -14,14 +14,14 @@ const isAuth = (req, res, next) => {
 /* ===== SEND MESSAGE ===== */
 router.post("/send", isAuth, async (req, res) => {
   try {
-    let { message, chatId } = req.body;
+    // 🚀 Unpack incoming image base64 from body alongside text
+    let { message, chatId, image } = req.body;
 
     if (!message || message.trim() === "") {
       return res.status(400).json({ error: "Empty message" });
     }
 
     message = message.trim();
-
     let chat;
 
     // CREATE OR FIND CHAT
@@ -42,21 +42,24 @@ router.post("/send", isAuth, async (req, res) => {
       return res.status(404).json({ error: "Chat not found" });
     }
 
-    // SAVE USER MESSAGE
+    // SAVE USER MESSAGE WITH IMAGE
     chat.messages.push({
       role: "user",
       content: message,
+      image: image || null, // 🚀 Saves base64 string to database doc
     });
 
-    // LAST 10 HISTORY
+    // LAST 10 HISTORY ITEMS FOR THIS CHAT ONLY
     const history = chat.messages.slice(-10).map((msg) => ({
       role: msg.role,
       content: msg.content,
+      image: msg.image || null, // 🚀 Propagates the image to your AI route payload
     }));
 
     let aiReply = "No response generated.";
 
     try {
+      // Pass the local multimodal history alongside the user's global memory profile
       const response = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
         headers: {
@@ -64,7 +67,8 @@ router.post("/send", isAuth, async (req, res) => {
         },
         body: JSON.stringify({
           message,
-          messages: history,
+          history,
+          userMemory: req.user.aiMemory,
         }),
       });
 
